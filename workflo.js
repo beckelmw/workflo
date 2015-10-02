@@ -382,7 +382,7 @@ var activity = {
     },
 
     cancel: function(taskToken, details) {
-        return this.svc.respondActivityTaskCancelled({ taskToken: taskToken, details: details });
+        return this.svc.respondActivityTaskCanceled({ taskToken: taskToken, details: details });
     },
 
     fail: function(taskToken, details, reason) {
