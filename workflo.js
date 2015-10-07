@@ -41,7 +41,8 @@ var workflow = {
             config: _.assign({
                 maxFailures: 5,
                 maxDecisionTimeouts: 5,
-                maxActivityTimeouts: 5
+                maxActivityTimeouts: 5,
+                initialRetryDelay: 5
             }, opts.config||{}),
             
             verify: function() {
@@ -79,10 +80,10 @@ var workflow = {
                     history = context.history,
                     config = context.workflow && context.workflow.config,
                     lastFailed = history.lastFailedActivity(),
+                    lastTimerStartedActivity = history.lastTimerStartedActivity(),
                     lastTimerFiredActivity = history.lastTimerFiredActivity(),
                     lastCompleted = history.lastCompletedActivity(),
                     lastScheduled = history.lastScheduledActivity(),
-                    lastTimerFiredActivity = history.lastTimerFiredActivity(),
                     previousFail = false;
 
                 //** see if the workflow was cancelled
@@ -140,14 +141,16 @@ var workflow = {
                     //** if a fail activity was found, run it
                     if(activity) {
                         if (!lastTimerFiredActivity) {
-                            context.startTimer(String(Math.random()).substr(2), 5);
+                            context.startTimer(String(Math.random()).substr(2), this.config.initialRetryDelay);
                         } else {
                             var lastTimerFiredId = lastTimerFiredActivity.args().startedEventId;
                             var lastFailedActivityId = lastFailed.args().startedEventId;
                             if(parseInt(lastTimerFiredId) >= parseInt(lastFailedActivityId)) {
                                 context.schedule(activity); 
                             } else {
-                                context.startTimer(String(Math.random()).substr(2), 5);
+                                // Exponential retry delay
+                                var last_delay = parseInt(lastTimerStartedActivity.timerStartedEventAttributes.startToFireTimeout);
+                                context.startTimer(String(Math.random()).substr(2), last_delay * 2);
                             }
                         }
                         return p.resolve();
@@ -897,6 +900,10 @@ _.assign(eventHistory.prototype, {
 
     lastTimerFiredActivity: function() {
         return this.eventsByType('TimerFired').pop();
+    },
+
+    lastTimerStartedActivity: function() {
+        return this.eventsByType('TimerStarted').pop();
     },
 
     lastFailedActivity: function() {
