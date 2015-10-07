@@ -43,7 +43,7 @@ var workflow = {
                 maxDecisionTimeouts: 5,
                 maxActivityTimeouts: 5
             }, opts.config||{}),
-
+            
             verify: function() {
                 var def = Q.defer();
 
@@ -79,8 +79,10 @@ var workflow = {
                     history = context.history,
                     config = context.workflow && context.workflow.config,
                     lastFailed = history.lastFailedActivity(),
+                    lastTimerFiredActivity = history.lastTimerFiredActivity(),
                     lastCompleted = history.lastCompletedActivity(),
                     lastScheduled = history.lastScheduledActivity(),
+                    lastTimerFiredActivity = history.lastTimerFiredActivity(),
                     previousFail = false;
 
                 //** see if the workflow was cancelled
@@ -137,7 +139,17 @@ var workflow = {
 
                     //** if a fail activity was found, run it
                     if(activity) {
-                        context.schedule(activity);
+                        if (!lastTimerFiredActivity) {
+                            context.startTimer(String(Math.random()).substr(2), 5);
+                        } else {
+                            var lastTimerFiredId = lastTimerFiredActivity.args().startedEventId;
+                            var lastFailedActivityId = lastFailed.args().startedEventId;
+                            if(parseInt(lastTimerFiredId) >= parseInt(lastFailedActivityId)) {
+                                context.schedule(activity); 
+                            } else {
+                                context.startTimer(String(Math.random()).substr(2), 5);
+                            }
+                        }
                         return p.resolve();
                     }
                 }
@@ -539,6 +551,25 @@ var decisions = {
         };
     },
 
+    startTimerDecision: function(timerId, delay) {
+        return {
+            decisionType: 'StartTimer',
+            startTimerDecisionAttributes: {
+                startToFireTimeout: delay.toString(),
+                timerId: timerId
+            }
+        };
+    },
+
+    cancelTimerDecision: function(timerId) {
+        return {
+            decisionType: 'CancelTimer',
+            cancelTimerDecisionAttributes: {
+                timerId: timeId.toString()
+            }
+        }
+    },
+
     completeWorkflow: function(result) {
         result = result||{};
         typeof(result) == 'object' && (result = JSON.stringify(result));
@@ -669,6 +700,10 @@ _.extend(decisionContext.prototype, {
         });
 
         this.decisions.push(decisions.scheduleActivityTask(activity.name, activity.version, null, opts));
+    },
+
+    startTimer: function(timerId, delay) {
+        this.decisions.push(decisions.startTimerDecision(timerId, delay));
     },
 
     //** for scheduling an activity task by name/version; this method enforces the version passed by setting it on the activity
@@ -858,6 +893,10 @@ _.assign(eventHistory.prototype, {
 
     lastCompletedActivity: function() {
         return this.eventsByType('ActivityTaskCompleted').pop();
+    },
+
+    lastTimerFiredActivity: function() {
+        return this.eventsByType('TimerFired').pop();
     },
 
     lastFailedActivity: function() {
