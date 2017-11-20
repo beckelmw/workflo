@@ -998,7 +998,7 @@ var workflo = module.exports = function(opt) {
         opts = opts || {};
         
         var def = Q.defer(),
-            version = opts.version || wkflow.swf.version,
+            version = opts.version || '1.0',
             taskList = (typeof(taskList) === 'string' ? { name: taskList } : taskList);
 
         //** execute the tasklist
