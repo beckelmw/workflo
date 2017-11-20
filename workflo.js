@@ -996,25 +996,13 @@ var workflo = module.exports = function(opt) {
     //** simple helper function to execute a workflow, using the syntax: workflo.run('some-test-workflow')
     this.run = function (name, data, taskList, opts) {
         opts = opts || {};
-        var def = Q.defer();
+        
+        var def = Q.defer(),
+            version = opts.version || wkflow.swf.version,
+            taskList = (typeof(taskList) === 'string' ? { name: taskList } : taskList);
 
-        //** get the workflow we're trying to run
-        var wkflow = _workflows[name];
-
-        if(!wkflow) {
-            def.reject('Could not find the target workflow: '+ name);
-        } else {
-            //** use the version of the workflow we're running (in case multiple versions exist in swf)
-            var version = opts.version || wkflow.swf.version,
-                taskList = (typeof(taskList) === 'string' ? { name: taskList } : taskList) || wkflow.swf.defaultTaskList;
-
-            //** use the default tasklist for workflo if none specified for the target workflow, or method invocation
-            if(!taskList) taskList = this.defaultTaskList;
-            !!taskList && (opts.taskList = taskList);
-
-            //** execute the tasklist
-            this.workflow.execute(name, version, data, opts).done();
-        }
+        //** execute the tasklist
+        this.workflow.execute(name, version, data, opts).done();
 
         return def.promise;
     }.bind(this);
